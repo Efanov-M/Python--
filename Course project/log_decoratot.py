@@ -1,11 +1,11 @@
 from datetime import datetime
-from yandex import YaDiskAPIError
-from cat import CatApiError
+from errors import YaDiskAPIError, CatApiError
+
 from loggerAPI import LoggerApi
 
 
 
-logger = LoggerApi()
+logger = LoggerApi("api_audit_log.csv")
 def audit():
     """
     Декоратор аудита API-взаимодействий.

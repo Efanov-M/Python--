@@ -1,23 +1,9 @@
 import requests
 import json
 from log_decoratot import audit
+from errors import CatApiError
 
 
-class CatApiError(Exception):
-    """
-    Исключение для ошибок взаимодействия с API сервиса cataas.com.
-
-    Атрибуты:
-        status_code (int): HTTP-код ответа сервера.
-        message (str): Текст ошибки, полученный от API или стандартное сообщение.
-
-    Используется для проброса ошибок API
-    на уровень вызывающего кода без их потери.
-    """
-    def __init__(self, status_code, message=None):
-        self.status_code = status_code
-        self.message = message or "API error"
-        super().__init__(f"{self.message} (HTTP {self.status_code})")
 
 class CatImage:
     """
@@ -74,7 +60,7 @@ class CatImage:
                     иначе None.
        """
        cat_url = self.meta_data_cat.get('url')
-       return cat_url
+       return str(cat_url)
 
     def get_id(self):
        """

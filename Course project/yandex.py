@@ -2,25 +2,7 @@ import requests
 import json
 from pathlib import Path
 from log_decoratot import audit
-
-
-
-class YaDiskAPIError(Exception):
-    """
-    Исключение для ошибок взаимодействия с API Яндекс.Диска.
-
-    Атрибуты:
-        status_code (int): HTTP-код ответа сервера.
-        message (str): Текст ошибки, полученный от API или стандартное сообщение.
-
-    Используется для проброса значимых состояний API (403, 404, 409 и др.)
-    на уровень вызывающего кода без их потери.
-    """
-    def __init__(self, status_code, message=None):
-        self.status_code = status_code
-        self.message = message or "API error"
-        super().__init__(f"{self.message} (HTTP {self.status_code})")
-
+from errors import YaDiskAPIError
 
 
 
@@ -109,7 +91,7 @@ class Ya_Disk:
             "Authorization": f"OAuth {self.token}",
             "Accept": "application/json"
         }
-        response  = requests.get(f"https://cloud-api.yandex.net{url_API}",params=params, timeout=3, headers=headers )
+        response  = requests.get(f"https://cloud-api.yandex.net{url_API}",params=params, timeout=10, headers=headers )
         content_type = response.headers.get('Content-Type', '')
         if response.status_code == 200 and 'application/json' in content_type:
             data = response.json()
@@ -138,7 +120,7 @@ class Ya_Disk:
             "Authorization": f"OAuth {self.token}",
             "Accept": "application/json"
         }
-        response  = requests.put(f"https://cloud-api.yandex.net{url_API}",params=params, timeout=3, headers=headers )
+        response  = requests.put(f"https://cloud-api.yandex.net{url_API}",params=params, timeout=10, headers=headers )
         if response.status_code == 201:
             return
         raise YaDiskAPIError(response.status_code, response.text)
@@ -164,7 +146,7 @@ class Ya_Disk:
             "Authorization": f"OAuth {self.token}",
             "Accept": "application/json"
         }
-        response  = requests.post(f"https://cloud-api.yandex.net{url_API}",params=params, timeout=3, headers=headers)
+        response  = requests.post(f"https://cloud-api.yandex.net{url_API}",params=params, timeout=10, headers=headers)
         if response.status_code == 202:
             return
         raise YaDiskAPIError(response.status_code, response.text)
@@ -204,12 +186,9 @@ class Ya_Disk:
             YaDiskAPIError: При ошибке ответа API.
 
         """
-        data = self.check_url_GET(url_API)
-
-        name_list =[]
-        for line in data['items']:
-            name_list.append(line['name'])
-        return '\n'.join(name_list)
+        params = {"limit": 1000}
+        data = self.check_url_GET(url_API, params=params)
+        return data
 
     @audit()
     def new_folder(self, url_API: str, path_DISK:str):
@@ -292,7 +271,7 @@ class Ya_Disk:
             raise ValueError('Метод отправки не определен')
 
     @audit()
-    def upload_file_atURL_toDisk(self,path_local:str,url_API: str, path_DISK:str, NetURL: str):
+    def upload_file_atURL_toDisk(self,url_API: str, path_DISK:str, NetURL: str):
         """
         Сохраняет файл на Яндекс.Диск по внешнему URL без загрузки на локальный компьютер.
 
@@ -309,6 +288,6 @@ class Ya_Disk:
             YaDiskAPIError: При ошибке ответа API.
         """
         params = {'path':path_DISK, 'overwrite':False, 'url':NetURL}
-        self.check_url_PUT(url_API,params)
+        self.check_url_POST(url_API,params)
         return "Файл сохранен на Яндекс диске"
 

@@ -10,3 +10,7 @@
 
 + Open_read_file_task1 - задание по книге рецептов
 + Open_read_file_task2 - задание по тексту
+
+### Итоговая работа по модулю
+
++ Course project

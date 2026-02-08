@@ -1,0 +1,18 @@
+datetime,class,method,status,http_code,message
+2026-02-08 15:17:27.506062,Ya_Disk,get_resourse,SUCCESS,,
+2026-02-08 15:23:23.171448,Ya_Disk,get_folders_on_ya_disk,SUCCESS,,
+2026-02-08 15:23:37.355393,Ya_Disk,get_folders_on_ya_disk,SUCCESS,,
+2026-02-08 15:23:44.263318,Ya_Disk,get_resourse,SUCCESS,,
+2026-02-08 15:26:13.938293,Ya_Disk,get_folders_on_ya_disk,SUCCESS,,
+2026-02-08 16:24:37.173160,Ya_Disk,get_folders_on_ya_disk,SUCCESS,,
+2026-02-08 16:28:34.596435,Ya_Disk,get_folders_on_ya_disk,SUCCESS,,
+2026-02-08 16:30:32.264338,Ya_Disk,get_resourse,SUCCESS,,
+2026-02-08 16:33:13.769908,Ya_Disk,new_folder,ERROR,409,"{""error"":""DiskPathPointsToExistentDirectoryError"",""description"":""Specified path \""Netology\"" points to existent directory."",""message"":""По указанному пути \""Netology\"" уже существует папка с таким именем.""}"
+2026-02-08 16:33:46.570172,Ya_Disk,new_folder,SUCCESS,,
+2026-02-08 17:04:25.985127,CatImage,get_meta_data,SUCCESS,,
+2026-02-08 17:04:41.771940,Ya_Disk,upload_file_atURL_toDisk,ERROR,403,"{""error"":""ForbiddenError"",""description"":""Forbidden"",""message"":""Доступ запрещён. Возможно, у приложения недостаточно прав для данного действия.""}"
+2026-02-08 17:05:49.445803,CatImage,get_meta_data,SUCCESS,,
+2026-02-08 17:06:07.080867,Ya_Disk,upload_file_atURL_toDisk,ERROR,403,"{""error"":""ForbiddenError"",""description"":""Forbidden"",""message"":""Доступ запрещён. Возможно, у приложения недостаточно прав для данного действия.""}"
+2026-02-08 17:07:47.329998,Ya_Disk,get_folders_on_ya_disk,SUCCESS,,
+2026-02-08 17:09:55.464661,CatImage,get_meta_data,SUCCESS,,
+2026-02-08 17:10:03.406125,Ya_Disk,upload_file_atURL_toDisk,SUCCESS,,
