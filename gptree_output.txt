@@ -1,0 +1,919 @@
+# Project Directory Structure:
+.
+├── .gptree_config
+├── api_audit_log.csv
+├── cat.py
+├── decorators.py
+├── errors.py
+├── log_decoratot.py
+├── loggerAPI.py
+├── main.py
+├── requirements.txt
+└── yandex.py
+
+# BEGIN FILE CONTENTS
+
+# File: .gptree_config
+
+# GPTree Local Config
+version: 2
+
+# Whether to use .gitignore
+useGitIgnore: true
+# File types to include (e.g., .py,.js)
+includeFileTypes: *
+# File types to exclude when includeFileTypes is '*'
+excludeFileTypes: 
+# Output file name
+outputFile: gptree_output.txt
+# Whether to output the file locally or relative to the project directory
+outputFileLocally: true
+# Whether to copy the output to the clipboard
+copyToClipboard: false
+# Whether to use safe mode (prevent overly large files from being combined)
+safeMode: true
+# Whether to store the files chosen in the config file (--save, -s)
+storeFilesChosen: true
+# Whether to include line numbers in the output (--line-numbers, -n)
+lineNumbers: false
+# Whether to show ignored files in the directory tree
+showIgnoredInTree: false
+# Whether to show only default ignored files in the directory tree while still respecting gitignore
+showDefaultIgnoredInTree: false
+# Previously selected files (when using the -s or --save flag previously)
+previousFiles: 
+
+
+# END FILE CONTENTS
+
+
+# File: yandex.py
+
+import requests
+import json
+from pathlib import Path
+from log_decoratot import audit
+from errors import YaDiskAPIError
+
+
+
+class Ya_Disk:
+    """
+    Клиент для работы с API Яндекс.Диска.
+
+    Реализует:
+        • получение информации о диске
+        • просмотр опубликованных ресурсов
+        • создание папок
+        • загрузку файлов с локального компьютера
+
+    Все операции выполняются через HTTP API Яндекс.Диска.
+    """
+
+    def __init__(self,token) -> None:
+        self.token = token
+
+    @staticmethod
+    def human_size(size_bytes: int) -> str:
+        """
+        Преобразует размер в байтах в человекочитаемый формат.
+
+        Args:
+            size_bytes (int): Размер в байтах.
+
+        Returns:
+            str: Размер в формате B / KB / MB / GB / TB.
+
+        Используется для удобного отображения информации о дисковом пространстве.
+        """
+        units = ['B', 'KB', 'MB', 'GB', 'TB']
+        size = float(size_bytes)
+
+        for unit in units:
+            if size < 1024:
+                return f"{size:.2f} {unit}"
+            size /= 1024
+
+        return f"{size:.2f} PB"
+
+    @staticmethod
+    def chek_file(path_local):
+        """
+        Проверяет корректность локального файла перед загрузкой.
+
+        Args:
+            path_local (str): Путь к локальному файлу.
+
+        Returns:
+            Path: Объект Path проверенного файла.
+
+        Raises:
+            FileNotFoundError: Если файл не существует.
+            TypeError: Если указанный путь не является файлом.
+
+        Примечание:
+            Метод проверяет доступность файла для чтения,
+            но не считывает его содержимое.
+        """
+        path = Path(path_local)
+
+        if not path.exists():
+            raise FileNotFoundError ('Не верно указан путь или файла не существует')
+        if not path.is_file():
+            raise TypeError ('Вы ввели не файл')
+        with open(path, 'rb') as file:
+            return path
+
+    def check_url_GET(self,url_API:str, params = None):
+        """
+        Выполняет GET-запрос к API Яндекс.Диска и возвращает JSON-ответ.
+
+        Args:
+            url_API (str): API-эндпоинт (например: '/v1/disk').
+            params (dict | None): Query-параметры запроса.
+
+        Returns:
+            dict: JSON-ответ API.
+
+        Raises:
+            YaDiskAPIError: При любом неуспешном HTTP-ответе.
+        """
+        headers = {
+            "Authorization": f"OAuth {self.token}",
+            "Accept": "application/json"
+        }
+        response  = requests.get(f"https://cloud-api.yandex.net{url_API}",params=params, timeout=10, headers=headers )
+        content_type = response.headers.get('Content-Type', '')
+        if response.status_code == 200 and 'application/json' in content_type:
+            data = response.json()
+            return data
+
+        raise YaDiskAPIError(response.status_code, response.text)
+
+    def check_url_PUT(self,url_API:str, params = None):
+        """
+        Выполняет PUT-запрос к API Яндекс.Диска.
+
+        Используется для операций с побочным эффектом
+        (создание папок, сохранение файлов по URL и т.п.).
+
+        Args:
+            url_API (str): API-эндпоинт.
+            params (dict | None): Query-параметры запроса.
+
+        Returns:
+            None: При успешном выполнении операции.
+
+        Raises:
+            YaDiskAPIError: При любом неуспешном HTTP-ответе.
+        """
+        headers = {
+            "Authorization": f"OAuth {self.token}",
+            "Accept": "application/json"
+        }
+        response  = requests.put(f"https://cloud-api.yandex.net{url_API}",params=params, timeout=10, headers=headers )
+        if response.status_code == 201:
+            return
+        raise YaDiskAPIError(response.status_code, response.text)
+
+    def check_url_POST(self, url_API:str, params = None):
+        """
+        Выполняет POST-запрос к API Яндекс.Диска.
+
+        Используется для асинхронных операций,
+        возвращающих статус 202 Accepted.
+
+        Args:
+            url_API (str): API-эндпоинт.
+            params (dict | None): Query-параметры запроса.
+
+        Returns:
+            None: При успешном принятии операции сервером.
+
+        Raises:
+            YaDiskAPIError: При любом неуспешном HTTP-ответе.
+        """
+        headers = {
+            "Authorization": f"OAuth {self.token}",
+            "Accept": "application/json"
+        }
+        response  = requests.post(f"https://cloud-api.yandex.net{url_API}",params=params, timeout=10, headers=headers)
+        if response.status_code == 202:
+            return
+        raise YaDiskAPIError(response.status_code, response.text)
+
+    @audit()
+    def get_resourse(self, url_API:str):
+        """
+        Получает информацию о дисковом пространстве Яндекс.Диска.
+
+        Args:
+            url_API (str): API-эндпоинт (например: '/v1/disk').
+
+        Returns:
+            str: Текстовая информация об общем и использованном объёме диска.
+
+        Raises:
+            YaDiskAPIError: При ошибке ответа API.
+        """
+        data = self.check_url_GET(url_API)
+        total_space = self.human_size(data['total_space'] )
+        used_space = self.human_size(data['used_space'])
+        return f'Общая вместимость диска {total_space}\nИспользовано : {used_space} '
+
+    @audit()
+    def get_folders_on_ya_disk(self, url_API:str):
+        """
+        Получает список опубликованных ресурсов на Яндекс.Диске.
+
+        Args:
+            url_API (str): API-эндпоинт опубликованных ресурсов
+                       (например: '/v1/disk/resources/public').
+
+        Returns:
+            str: Список имён ресурсов, разделённых переносами строк.
+
+        Raises:
+            YaDiskAPIError: При ошибке ответа API.
+
+        """
+        params = {"limit": 1000}
+        data = self.check_url_GET(url_API, params=params)
+        return data
+
+    @audit()
+    def new_folder(self, url_API: str, path_DISK:str):
+        """
+        Создаёт папку на Яндекс.Диске.
+
+        Args:
+            url_API (str): API-эндпоинт создания папки
+                       (например: '/v1/disk/resources').
+            path_DISK (str): Путь к папке на Яндекс.Диске.
+
+        Returns:
+            str: Сообщение об успешном создании папки.
+
+        Raises:
+            YaDiskAPIError: При ошибке ответа API, кроме конфликта 409.
+        """
+
+        params = {'path':path_DISK}
+
+        self.check_url_PUT(url_API,params)
+        return "Папка создана"
+
+    @audit()
+    def get_url_to_load_file(self, url_API: str, path_DISK:str):
+        """
+        Получает временную ссылку для загрузки файла на Яндекс.Диск.
+
+        Args:
+            url_API (str): API-эндпоинт получения ссылки загрузки
+                       (например: '/v1/disk/resources/upload').
+            path_DISK (str): Полный путь к файлу на Яндекс.Диске.
+
+        Returns:
+            tuple: (href, method) — URL загрузки и HTTP-метод.
+
+        Raises:
+            YaDiskAPIError: При ошибке ответа API, включая конфликт 409.
+
+        Примечание:
+            Метод не выполняет загрузку файла, а только получает разрешение
+            и ссылку для последующей передачи данных.
+        """
+
+        params = {'path':path_DISK, 'overwrite':False}
+        data = self.check_url_GET(url_API, params)
+        return (data['href'],data['method'])
+
+    @audit()
+    def upload_file_fromPC_toDisk(self,path_local:str,url_API: str, path_DISK:str):
+        """
+        Загружает файл с локального компьютера на Яндекс.Диск.
+
+        Args:
+            path_local (str): Путь к локальному файлу.
+            url_API (str): API-эндпоинт получения ссылки загрузки
+                       (например: '/v1/disk/resources/upload').
+            path_DISK (str): Путь и имя файла на Яндекс.Диске.
+
+        Returns:
+            str: Сообщение об успешной загрузке файла.
+
+        Raises:
+            YaDiskAPIError: При ошибке загрузки или ответа API.
+            ValueError: Если метод загрузки не определён.
+
+        Примечание:
+            Загрузка выполняется потоково (streaming),
+            без предварительного чтения файла в память.
+        """
+        url_uload,metod = self.get_url_to_load_file(url_API, path_DISK)
+        path = self.chek_file(path_local)
+        if metod == 'PUT':
+            with open(path, 'rb') as file:
+                response = requests.put(url=url_uload, data=file)
+                if response.status_code in [200, 201,202]:
+                    return "Файл скопирован на диск"
+                raise YaDiskAPIError(response.status_code, response.text)
+        else:
+            raise ValueError('Метод отправки не определен')
+
+    @audit()
+    def upload_file_atURL_toDisk(self,url_API: str, path_DISK:str, NetURL: str):
+        """
+        Сохраняет файл на Яндекс.Диск по внешнему URL без загрузки на локальный компьютер.
+
+        Args:
+            url_API (str): API-эндпоинт сохранения файла по URL
+                       (например: '/v1/disk/resources/upload').
+            path_DISK (str): Путь и имя файла на Яндекс.Диске.
+            NetURL (str): Внешний URL файла.
+
+        Returns:
+            str: Сообщение об успешном сохранении файла.
+
+        Raises:
+            YaDiskAPIError: При ошибке ответа API.
+        """
+        params = {'path':path_DISK, 'overwrite':False, 'url':NetURL}
+        self.check_url_POST(url_API,params)
+        return "Файл сохранен на Яндекс диске"
+
+
+
+# END FILE CONTENTS
+
+
+# File: loggerAPI.py
+
+from pathlib import Path
+import csv
+
+
+class LoggerApi:
+    """
+    Класс для хранения и записи аудита API-взаимодействий в CSV-файл.
+    """
+
+    HEADER = [
+        "datetime",
+        "class",
+        "method",
+        "status",
+        "http_code",
+        "message"
+    ]
+
+    def __init__(self, log_path: str) -> None:
+        self.log_path = Path(log_path)
+
+    def check_log(self) -> bool:
+        """
+        Проверяет существование файла лога.
+        """
+        return self.log_path.exists()
+
+    def new_log(self) -> None:
+        """
+        Создаёт новый CSV-файл лога и записывает заголовок.
+        """
+        with open(self.log_path, "w", newline="", encoding="utf-8") as file:
+            writer = csv.writer(file)
+            writer.writerow(self.HEADER)
+
+    def get_data_for_write(self, data: list) -> None:
+        """
+        Принимает одну запись аудита и записывает её в лог.
+        """
+        if not self.check_log():
+            self.new_log()
+
+        self.write_log(data)
+
+    def write_log(self, data: list) -> None:
+        """
+        Добавляет одну строку в CSV-файл.
+        """
+        with open(self.log_path, "a", newline="", encoding="utf-8") as file:
+            writer = csv.writer(file)
+            writer.writerow(data)
+
+    def open_log(self) -> list:
+        """
+        Возвращает содержимое CSV-файла в виде списка строк.
+        """
+        if not self.check_log():
+            return []
+
+        with open(self.log_path, "r", encoding="utf-8") as file:
+            reader = csv.reader(file)
+            return list(reader)
+
+
+# END FILE CONTENTS
+
+
+# File: requirements.txt
+
+requests
+
+
+# END FILE CONTENTS
+
+
+# File: cat.py
+
+import requests
+import json
+from log_decoratot import audit
+from errors import CatApiError
+
+
+
+class CatImage:
+    """
+    Клиент для работы с API сервиса cataas.com.
+
+    Предназначен для получения изображений котов
+    и связанных с ними метаданных (id, url, mimetype).
+
+    Хранит полученные данные во внутреннем состоянии объекта
+    и предоставляет методы доступа к отдельным полям.
+    """
+
+    def __init__(self) -> None:
+        self.meta_data_cat = {}
+
+    @audit()
+    def get_meta_data(self, api_url:str):
+        """
+        Получает метаданные изображения кота через API cataas.com.
+
+        Выполняет HTTP-запрос и сохраняет полученные данные
+        (id, url, mimetype и др.) во внутреннее хранилище объекта.
+
+        Args:
+            api_url (str): API-эндпоинт (например: 'cat' или 'cat/says/text').
+
+        Returns:
+            dict | None: Словарь с метаданными изображения либо None,
+                     если используется процедурный вызов.
+
+        Raises:
+            CatApiError: При ошибке ответа API.
+        """
+        url = f'https://cataas.com/{api_url}'
+        headers = {
+            "Accept": "application/json"
+        }
+        response =requests.get(url, timeout=4, headers=headers)
+
+        content_type = response.headers.get('Content-Type', '')
+        if response.status_code == 200 and 'application/json' in content_type:
+            data = response.json()
+            self.meta_data_cat.update(data)
+            return
+        else:
+              raise CatApiError(response.status_code, response.text)
+
+    def get_url(self):
+       """
+       Возвращает URL изображения кота.
+
+       Returns:
+        str | None: URL изображения, если метаданные были получены,
+                    иначе None.
+       """
+       cat_url = self.meta_data_cat.get('url')
+       return str(cat_url)
+
+    def get_id(self):
+       """
+       Возвращает идентификатор изображения кота.
+
+       Returns:
+        str | None: Идентификатор изображения, если метаданные были получены,
+                    иначе None.
+       """
+       cat_url = self.meta_data_cat.get('id')
+       return cat_url
+
+
+# END FILE CONTENTS
+
+
+# File: errors.py
+
+class YaDiskAPIError(Exception):
+    def __init__(self, status_code, message=None):
+        self.status_code = status_code
+        self.message = message or "API error"
+        super().__init__(f"{self.message} (HTTP {self.status_code})")
+
+
+class CatApiError(Exception):
+    def __init__(self, status_code, message=None):
+        self.status_code = status_code
+        self.message = message or "API error"
+        super().__init__(f"{self.message} (HTTP {self.status_code})")
+
+
+# END FILE CONTENTS
+
+
+# File: log_decoratot.py
+
+from datetime import datetime
+from errors import YaDiskAPIError, CatApiError
+
+from loggerAPI import LoggerApi
+
+
+
+logger = LoggerApi("api_audit_log.csv")
+def audit():
+    """
+    Декоратор аудита API-взаимодействий.
+
+    Назначение:
+        Оборачивает методы, выполняющие сетевые запросы (API),
+        и формирует структурированную запись аудита для каждого вызова.
+
+    Поведение:
+        • При успешном выполнении метода:
+            - фиксирует дату и время вызова;
+            - фиксирует имя класса и метода;
+            - фиксирует статус 'SUCCESS';
+            - передаёт запись в приёмник аудита.
+
+        • При возникновении ожидаемой API-ошибки
+          (YaDiskAPIError, CatApiError):
+            - фиксирует дату и время вызова;
+            - фиксирует имя класса и метода;
+            - фиксирует статус 'ERROR';
+            - сохраняет HTTP-код и сообщение ошибки;
+            - передаёт запись в приёмник аудита;
+            - повторно выбрасывает исключение.
+
+        • При возникновении любой другой ошибки:
+            - аудит не производится;
+            - исключение пробрасывается без изменений.
+
+    Особенности:
+        • Декоратор не выполняет запись в файл и не знает
+          о способе хранения данных.
+        • Передача данных осуществляется через функцию
+          `get_data_for_write(record)`, выступающую приёмником событий.
+        • Декоратор не изменяет контракт оборачиваемых методов
+          и возвращает их результат без модификации.
+        • Исключения не подавляются.
+
+    Ожидаемый контракт приёмника:
+        get_data_for_write(record: list) -> None
+            - принимает одну запись аудита;
+            - не выбрасывает исключений наружу;
+            - не изменяет структуру записи.
+
+    Структура записи аудита:
+        [
+            datetime,        # время вызова
+            class_name,      # имя класса
+            method_name,     # имя метода
+            status,          # 'SUCCESS' | 'ERROR'
+            http_code,       # HTTP-код ошибки или None
+            message          # текст ошибки или None
+        ]
+    """
+
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            DateTime = datetime.now()
+            log_record = []
+            log_record.append(DateTime)
+            log_record.append(args[0].__class__.__name__)
+            log_record.append(func.__name__)
+            need_log=False
+            try:
+                result = func(*args, **kwargs)
+                log_record.append('SUCCESS')
+                log_record.append(None)
+                log_record.append(None)
+                need_log=True
+                return result
+            except (YaDiskAPIError, CatApiError) as e:
+                log_record.append('ERROR')
+                log_record.append(e.status_code)
+                log_record.append(e.message)
+                need_log=True
+                raise
+            except Exception as d:
+                need_log=False
+                raise
+            finally:
+                if need_log:
+                    logger.get_data_for_write(log_record)
+        return wrapper
+    return decorator
+
+
+# END FILE CONTENTS
+
+
+# File: api_audit_log.csv
+
+datetime,class,method,status,http_code,message
+2026-02-08 15:17:27.506062,Ya_Disk,get_resourse,SUCCESS,,
+2026-02-08 15:23:23.171448,Ya_Disk,get_folders_on_ya_disk,SUCCESS,,
+2026-02-08 15:23:37.355393,Ya_Disk,get_folders_on_ya_disk,SUCCESS,,
+2026-02-08 15:23:44.263318,Ya_Disk,get_resourse,SUCCESS,,
+2026-02-08 15:26:13.938293,Ya_Disk,get_folders_on_ya_disk,SUCCESS,,
+2026-02-08 16:24:37.173160,Ya_Disk,get_folders_on_ya_disk,SUCCESS,,
+2026-02-08 16:28:34.596435,Ya_Disk,get_folders_on_ya_disk,SUCCESS,,
+2026-02-08 16:30:32.264338,Ya_Disk,get_resourse,SUCCESS,,
+2026-02-08 16:33:13.769908,Ya_Disk,new_folder,ERROR,409,"{""error"":""DiskPathPointsToExistentDirectoryError"",""description"":""Specified path \""Netology\"" points to existent directory."",""message"":""По указанному пути \""Netology\"" уже существует папка с таким именем.""}"
+2026-02-08 16:33:46.570172,Ya_Disk,new_folder,SUCCESS,,
+2026-02-08 17:04:25.985127,CatImage,get_meta_data,SUCCESS,,
+2026-02-08 17:04:41.771940,Ya_Disk,upload_file_atURL_toDisk,ERROR,403,"{""error"":""ForbiddenError"",""description"":""Forbidden"",""message"":""Доступ запрещён. Возможно, у приложения недостаточно прав для данного действия.""}"
+2026-02-08 17:05:49.445803,CatImage,get_meta_data,SUCCESS,,
+2026-02-08 17:06:07.080867,Ya_Disk,upload_file_atURL_toDisk,ERROR,403,"{""error"":""ForbiddenError"",""description"":""Forbidden"",""message"":""Доступ запрещён. Возможно, у приложения недостаточно прав для данного действия.""}"
+2026-02-08 17:07:47.329998,Ya_Disk,get_folders_on_ya_disk,SUCCESS,,
+2026-02-08 17:09:55.464661,CatImage,get_meta_data,SUCCESS,,
+2026-02-08 17:10:03.406125,Ya_Disk,upload_file_atURL_toDisk,SUCCESS,,
+
+
+# END FILE CONTENTS
+
+
+# File: main.py
+
+from cat import CatImage
+from yandex import Ya_Disk
+from errors import YaDiskAPIError, CatApiError
+from decorators import paged_output
+import json
+
+
+def run():
+    """
+    Точка входа в CLI-приложение.
+
+    Инициализирует объекты API-клиентов (Яндекс.Диск, cataas),
+    запрашивает OAuth-токен у пользователя
+    и запускает главный цикл взаимодействия.
+    """
+    #Инициализируем яндекс диск
+    token = input("Введите OAuth-токен Яндекс.Диска: ").strip()
+    yandex = Ya_Disk(token)
+
+    #Инициализируем котикокартинки
+    cat = CatImage()
+
+
+    main_loop(yandex, cat)
+
+def main_loop(yandex, cat):
+    """
+    Главный цикл CLI-приложения.
+
+    Отображает меню, принимает пользовательский ввод
+    и маршрутизирует выполнение команд.
+
+    Args:
+        yandex (Ya_Disk): клиент API Яндекс.Диска
+        cat (CatImage): клиент API cataas.com
+    """
+    while True:
+        show_main_menu()
+        user_choice = input('Введите выбор: ')
+        if user_choice == '0':
+            break
+
+        elif user_choice =='1':
+            show_disk_files(yandex)
+
+
+        elif user_choice == '2':
+            show_disk_info(yandex)
+
+        elif user_choice == '3':
+            create_disk_folder(yandex)
+
+        elif user_choice == '4':
+            upload_local_file(yandex)
+
+        elif user_choice == '5':
+            get_cat_image(yandex, cat)
+        elif user_choice == '6':
+            get_disk_files_at_json(yandex)
+        else:
+            print('Выбран не верный пункт меню')
+            continue
+
+def show_main_menu():
+    """
+    Отображает главное меню CLI.
+    """
+    print("\n===   ===")
+    print("1. Получить список файлов")
+    print("2. Получить информацию о дисковом пространстве Яндекс.Диска.")
+    print("3. Создать папку на  Яндекс.Диске")
+    print("4. Загрузить файл с рабочего места на Яндекс.Диск")
+    print("5.  Получить(сохранить) картинку котика")
+    print("6.  Сохранить список файлов на Я.Диске в файл ")
+    print("0. Выход")
+
+def show_disk_info(yandex: Ya_Disk):
+    """
+    Docstring для show_disk_info
+    Отображает информацию о дисковом пространстве Яндекс.Диска.
+
+    Args:
+        yandex (Ya_Disk): клиент API Яндекс.Диска
+    """
+    try:
+        info = yandex.get_resourse("/v1/disk")
+        print('\nОбщая информация по диску')
+        print(info)
+
+    except YaDiskAPIError as e:
+        print("❌ Ошибка Яндекс.Диска")
+        print(f"Код: {e.status_code}")
+        print(f"Сообщение: {e.message}")
+
+@paged_output()
+def show_disk_files(yandex: Ya_Disk):
+    """
+    Получает и отображает список файлов на Яндекс.Диске.
+
+    Длинный вывод автоматически форматируется
+    с использованием pager (less).
+    """
+    try:
+        data = yandex.get_folders_on_ya_disk("/v1/disk/resources/public")
+        name_list =[]
+        for line in data['items']:
+            name_list.append(line['name'])
+        return '\n'.join(name_list)
+
+    except YaDiskAPIError as e:
+        print("❌ Ошибка Яндекс.Диска")
+        print(f"Код: {e.status_code}")
+        print(f"Сообщение: {e.message}")
+
+def create_disk_folder(yandex: Ya_Disk):
+    """
+    Создаёт папку на Яндекс.Диске по пользовательскому вводу.
+    """
+    path_DISK = input('Введите название(путь) создаваемой папки на Я.Диске: ')
+    try:
+        info = yandex.new_folder("/v1/disk/resources", path_DISK)
+        print(info)
+
+    except YaDiskAPIError as e:
+        print("❌ Ошибка Яндекс.Диска")
+        print(f"Код: {e.status_code}")
+        print(f"Сообщение: {e.message}")
+
+def upload_local_file(yandex: Ya_Disk):
+    """
+    Загружает локальный файл пользователя на Яндекс.Диск.
+    """
+    path_DISK = input('Введите полный путь к файлу на Яндекс.Диске: ')
+    pathDISK_local = input('Введите путь к локальному файлу: ')
+    try:
+        info = yandex.upload_file_fromPC_toDisk(pathDISK_local, '/v1/disk/resources/upload', path_DISK)
+        print(info)
+
+    except YaDiskAPIError as e:
+        print("❌ Ошибка Яндекс.Диска")
+        print(f"Код: {e.status_code}")
+        print(f"Сообщение: {e.message}")
+
+def get_cat_image(yandex: Ya_Disk, cat: CatImage):
+    """
+    Получает изображение кота (с текстом или без)
+    через API cataas.com и сохраняет его на Яндекс.Диск.
+    """
+    while True:
+
+        user = input('Вы хотите картинку-1, картинку с текстом-2 (для выхода -0): ')
+        if user == '0':
+            break
+        elif user == '1':
+            try:
+                cat.get_meta_data('/cat')
+                url_cat= cat.get_url()
+                #сохраняем на Я.Диск
+                name_cat = input('Введите путь и имя файла на Яндекс.Диске: ')
+                info = yandex.upload_file_atURL_toDisk('/v1/disk/resources/upload',name_cat,url_cat)
+                return info
+            except CatApiError as e:
+                print("❌ Ошибка при получении изображения кота")
+                print(f"Код: {e.status_code}")
+                print(f"Сообщение: {e.message}")
+                continue
+        elif user == '2':
+            try:
+                text = input('Введите текст для картинки: ')
+                cat.get_meta_data(f'/cat/says/{text}')
+                url_cat= cat.get_url()
+                 #сохраняем на Я.Диск
+                name_cat = input('Введите путь и имя файла на Яндекс.Диске: ')
+                info = yandex.upload_file_atURL_toDisk('/v1/disk/resources/upload',name_cat,url_cat)
+                return info
+            except CatApiError as e:
+                print("❌ Ошибка при получении изображения кота")
+                print(f"Код: {e.status_code}")
+                print(f"Сообщение: {e.message}")
+                continue
+        else:
+            print("Введено не верное значение")
+
+def get_disk_files_at_json(yandex: Ya_Disk):
+    """
+    Сохраняет список файлов Яндекс.Диска в JSON-файл.
+
+    Используется для экспорта данных.
+    """
+    try:
+        data = yandex.get_folders_on_ya_disk("/v1/disk/resources/public")
+        with open('folders.json', 'w', encoding='utf-8') as f:
+            json.dump(data,f, indent=2, ensure_ascii=False)
+            print("Файл folders.json успешно сохранён")
+    except YaDiskAPIError as e:
+        print("❌ Ошибка Яндекс.Диска")
+        print(f"Код: {e.status_code}")
+        print(f"Сообщение: {e.message}")
+
+
+if __name__ == "__main__":
+    run()
+
+
+
+# END FILE CONTENTS
+
+
+# File: decorators.py
+
+import subprocess
+import sys
+import shutil
+
+
+def paged_output(max_lines: int = 5):
+    """
+    Декоратор для корректного отображения длинного текстового вывода в CLI.
+
+    Если функция возвращает строку:
+    - короткий текст выводится обычным print
+    - длинный текст открывается через pager (less)
+
+    Пользователь может листать стрелками и выйти клавишей 'q',
+    после чего управление возвращается в основной CLI-цикл.
+    """
+
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            try:
+                result = func(*args, **kwargs)
+
+                if not result:
+                    print("Нечего показывать.")
+                    return
+
+                text = str(result)
+                lines = text.count("\n") + 1
+
+                # Если вывод короткий — просто печатаем
+                if lines <= max_lines:
+                    print(text)
+                    input("\nНажмите Enter для возврата в меню...")
+                    return
+
+                # Проверяем, доступен ли less
+                if shutil.which("less"):
+                    process = subprocess.Popen(
+                        ["less", "-R"],
+                        stdin=subprocess.PIPE,
+                        text=True
+                    )
+                    process.communicate(text)
+                else:
+                    # Fallback, если less отсутствует
+                    print(text)
+                    input("\nНажмите Enter для возврата в меню...")
+
+            except KeyboardInterrupt:
+                print("\nОтображение прервано пользователем.")
+                return
+
+        return wrapper
+
+    return decorator
+
+
+# END FILE CONTENTS
