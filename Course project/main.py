@@ -147,24 +147,37 @@ def get_cat_image(yandex: Ya_Disk, cat: CatImage):
     через API cataas.com и сохраняет его на Яндекс.Диск.
     """
     while True:
+
         user = input('Вы хотите картинку-1, картинку с текстом-2 (для выхода -0): ')
         if user == '0':
             break
         elif user == '1':
-            cat.get_meta_data('/cat')
-            url_cat= cat.get_url()
-            #сохраняем на Я.Диск
-            name_cat = input('Введите путь и имя файла на Яндекс.Диске: ')
-            info = yandex.upload_file_atURL_toDisk('/v1/disk/resources/upload',name_cat,url_cat)
-            return info
+            try:
+                cat.get_meta_data('/cat')
+                url_cat= cat.get_url()
+                #сохраняем на Я.Диск
+                name_cat = input('Введите путь и имя файла на Яндекс.Диске: ')
+                info = yandex.upload_file_atURL_toDisk('/v1/disk/resources/upload',name_cat,url_cat)
+                return info
+            except CatApiError as e:
+                print("❌ Ошибка при получении изображения кота")
+                print(f"Код: {e.status_code}")
+                print(f"Сообщение: {e.message}")
+                continue
         elif user == '2':
-            text = input('Введите текст для картинки: ')
-            cat.get_meta_data(f'/cat/says/{text}')
-            url_cat= cat.get_url()
-            #сохраняем на Я.Диск
-            name_cat = input('Введите путь и имя файла на Яндекс.Диске: ')
-            info = yandex.upload_file_atURL_toDisk('/v1/disk/resources/upload',name_cat,url_cat)
-            return info
+            try:
+                text = input('Введите текст для картинки: ')
+                cat.get_meta_data(f'/cat/says/{text}')
+                url_cat= cat.get_url()
+                 #сохраняем на Я.Диск
+                name_cat = input('Введите путь и имя файла на Яндекс.Диске: ')
+                info = yandex.upload_file_atURL_toDisk('/v1/disk/resources/upload',name_cat,url_cat)
+                return info
+            except CatApiError as e:
+                print("❌ Ошибка при получении изображения кота")
+                print(f"Код: {e.status_code}")
+                print(f"Сообщение: {e.message}")
+                continue
         else:
             print("Введено не верное значение")
 
