@@ -2,10 +2,6 @@ from pathlib import Path
 import csv
 
 
-from pathlib import Path
-import csv
-
-
 class LoggerApi:
     """
     Класс для хранения и записи аудита API-взаимодействий в CSV-файл.
