@@ -14,3 +14,9 @@
 ### Итоговая работа по модулю
 
 + Course project
+
+## **Модуль : Базы данных для python-разработчиков**
+
+### Введение в базы данных. Типы баз данных.
+
++ Introduction to Databases. Types of Databases.
