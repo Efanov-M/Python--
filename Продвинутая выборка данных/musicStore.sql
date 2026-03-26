@@ -1,48 +1,59 @@
-CREATE TABLE genres (
+DROP TABLE IF EXISTS compilation_tracks;
+DROP TABLE IF EXISTS artist_albums;
+DROP TABLE IF EXISTS artist_genres;
+DROP TABLE IF EXISTS tracks;
+DROP TABLE IF EXISTS compilations;
+DROP TABLE IF EXISTS albums;
+DROP TABLE IF EXISTS artists;
+DROP TABLE IF EXISTS genres;
+
+
+
+CREATE TABLE IF NOT EXISTS genres (
     id INT PRIMARY KEY,
     name TEXT NOT NULL
 );
 
-CREATE TABLE artists (
+CREATE TABLE IF NOT EXISTS artists (
     id INT PRIMARY KEY,
     name TEXT NOT NULL
 );
 
-CREATE TABLE albums (
+CREATE TABLE IF NOT EXISTS albums (
     id INT PRIMARY KEY,
     title TEXT NOT NULL,
     release_year INT NOT NULL
 );
 
-CREATE TABLE tracks (
+CREATE TABLE IF NOT EXISTS tracks (
     id INT PRIMARY KEY,
     title TEXT NOT NULL,
     duration_seconds INT NOT NULL,
     album_id INT NOT NULL REFERENCES albums(id)
 );
 
-CREATE TABLE compilations (
+CREATE TABLE IF NOT EXISTS compilations (
     id INT PRIMARY KEY,
     title TEXT NOT NULL,
     release_year INT NOT NULL
 );
 
 -- связь артистов и жанров
-CREATE TABLE artist_genres (
+CREATE TABLE IF NOT EXISTS artist_genres (
     artist_id INT REFERENCES artists(id),
     genre_id INT REFERENCES genres(id),
     PRIMARY KEY (artist_id, genre_id)
 );
 
 -- связь артистов и альбомов
-CREATE TABLE artist_albums (
+CREATE TABLE IF NOT EXISTS artist_albums (
     artist_id INT REFERENCES artists(id),
     album_id INT REFERENCES albums(id),
     PRIMARY KEY (artist_id, album_id)
 );
 
 -- связь сборников и треков
-CREATE TABLE compilation_tracks (
+CREATE TABLE IF NOT EXISTS compilation_tracks (
     compilation_id INT REFERENCES compilations(id),
     track_id INT REFERENCES tracks(id),
     PRIMARY KEY (compilation_id, track_id)
@@ -50,7 +61,7 @@ CREATE TABLE compilation_tracks (
 
 
 
-INSERT INTO genres VALUES
+INSERT INTO  genres VALUES
 (1, 'Rock'),
 (2, 'Pop'),
 (3, 'Hip-Hop');
@@ -73,7 +84,7 @@ INSERT INTO tracks VALUES
 (1, 'Bohemian Rhapsody', 355, 1),
 (2, 'Beat It', 258, 2),
 (3, 'Without Me', 290, 3),
-(4, 'In The End', 216, 4)ю
+(4, 'In The End', 216, 4),
 (5, 'My Song', 220, 5),
 (6, 'Another My Track', 240, 6),
 (7, 'Short Track', 120, 5);
