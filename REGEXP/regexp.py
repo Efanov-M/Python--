@@ -1,25 +1,22 @@
-from pprint import pprint
-import re
-
 import csv
-with open("phonebook_raw.csv", encoding="utf-8") as f:
-  rows = csv.reader(f, delimiter=",")
-  contacts_list = list(rows)
-#pprint(contacts_list)
+import re
+from pprint import pprint
 
-contact_dict = {}
-index = 1
+with open("phonebook_raw.csv", encoding="utf-8") as f:
+    rows = csv.reader(f, delimiter=",")
+    contacts_list = list(rows)
+
 phone_pattern = re.compile(
     r"(\+7|8)\s*\(?(\d{3})\)?[\s-]*(\d{3})[\s-]*(\d{2})[\s-]*(\d{2})(?:\s*\(?доб\.?\s*(\d+)\)?)?"
-    )
-while index < len(contacts_list):
+)
 
-    old = contacts_list[index]
-    new_row = []
-    fio = ' '.join(old[0:3]).split()
-    fio += [''] * (3 - len(fio))
-    new_row = fio[:3] + old[3:]
+contact_dict = {}
+merge_conflicts = []
 
+for row in contacts_list[1:]:
+    fio = " ".join(row[:3]).split()
+    fio += [""] * (3 - len(fio))
+    new_row = fio[:3] + row[3:]
 
     phone = new_row[5]
     match = phone_pattern.search(phone)
@@ -29,30 +26,47 @@ while index < len(contacts_list):
             new_row[5] = f"+7({code}){part1}-{part2}-{part3} доб.{ext}"
         else:
             new_row[5] = f"+7({code}){part1}-{part2}-{part3}"
-    key = ' '.join(new_row[0:3])
+
+    key = (new_row[0].strip(), new_row[1].strip())
+
     if key not in contact_dict:
         contact_dict[key] = new_row
     else:
+        old_row = contact_dict[key]
         merged = []
 
-        for old_value, new_value in zip(contact_dict[key], new_row):
-
-            if old_value == "":
-
+        for index, (old_value, new_value) in enumerate(zip(old_row, new_row)):
+            if old_value == "" and new_value != "":
                 merged.append(new_value)
-
             else:
-
                 merged.append(old_value)
+
+                if old_value != "" and new_value != "" and old_value != new_value:
+                    merge_conflicts.append({
+                        "key": key,
+                        "column_index": index,
+                        "old_value": old_value,
+                        "new_value": new_value
+                    })
 
         contact_dict[key] = merged
 
-    index += 1
+new_contact_list = [contacts_list[0]] + list(contact_dict.values())
 
-new_contact_list = [contacts_list[0]]+list(contact_dict.values())
-#print(new_contact_list)
+if len(new_contact_list) != 8:
+    print(f"Ошибка: итоговое количество строк = {len(new_contact_list)}, ожидалось 8.")
+else:
+    print("Проверка количества строк пройдена: 8 строк.")
 
-with open("new_phonebook.csv", "w", encoding="utf-8") as f:
-  datawriter = csv.writer(f, delimiter=',')
+if merge_conflicts:
+    print("Обнаружены конфликты при объединении:")
+    for conflict in merge_conflicts:
+        print(conflict)
+else:
+    print("Конфликтов при объединении не обнаружено.")
 
-  datawriter.writerows(new_contact_list)
+with open("phonebook.csv", "w", encoding="utf-8", newline="") as f:
+    datawriter = csv.writer(f, delimiter=",")
+    datawriter.writerows(new_contact_list)
+
+pprint(new_contact_list)
