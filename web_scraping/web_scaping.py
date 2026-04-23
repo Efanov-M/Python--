@@ -10,19 +10,31 @@ KEYWORDS = [
 ]
 
 URL = "https://habr.com/ru/articles/"
-
-headers = {
+HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
 
-response = requests.get(URL, headers=headers, timeout=10)
-response.raise_for_status()
 
-soup = BeautifulSoup(response.text, "html.parser")
+def get_page_html(url):
+    try:
+        response = requests.get(url, headers=HEADERS, timeout=10)
+        response.raise_for_status()
+        return response.text
+    except requests.RequestException as error:
+        print(f"Ошибка при запросе страницы: {error}")
+        return None
 
-articles = soup.find_all("article")
 
-for article in articles:
+def parse_articles(html):
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        return soup.find_all("article")
+    except Exception as error:
+        print(f"Ошибка при разборе HTML: {error}")
+        return []
+
+
+def extract_article_data(article):
     title_tag = (
         article.select_one("h2 a")
         or article.select_one("a.tm-title__link")
@@ -32,13 +44,59 @@ for article in articles:
     time_tag = article.find("time")
 
     if not title_tag or not time_tag:
-        continue
+        return None
 
     title = title_tag.get_text(strip=True)
-    link = urljoin(URL, title_tag.get("href"))
-    date_text = time_tag.get("title") or time_tag.get("datetime") or time_tag.get_text(strip=True)
+    if not title:
+        return None
 
-    preview_text = article.get_text(" ", strip=True).lower()
+    href = title_tag.get("href")
+    if not href:
+        return None
 
-    if any(keyword.lower() in preview_text for keyword in KEYWORDS):
-        print(f"{date_text} – {title} – {link}")
+    link = urljoin(URL, href)
+
+    date_text = (
+        time_tag.get("title")
+        or time_tag.get("datetime")
+        or time_tag.get_text(strip=True)
+    )
+
+    preview_text = article.get_text(" ", strip=True)
+    if not preview_text:
+        preview_text = ""
+
+    return {
+        "title": title,
+        "date": date_text,
+        "link": link,
+        "preview": preview_text.lower(),
+    }
+
+
+def contains_keywords(text, keywords):
+    text = text.lower()
+    return any(keyword.lower() in text for keyword in keywords)
+
+
+def main():
+    html = get_page_html(URL)
+    if not html:
+        return
+
+    articles = parse_articles(html)
+    if not articles:
+        print("Статьи не найдены.")
+        return
+
+    for article in articles:
+        article_data = extract_article_data(article)
+        if not article_data:
+            continue
+
+        if contains_keywords(article_data["preview"], KEYWORDS):
+            print(f"{article_data['date']} – {article_data['title']} – {article_data['link']}")
+
+
+if __name__ == "__main__":
+    main()
