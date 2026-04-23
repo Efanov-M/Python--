@@ -29,7 +29,7 @@ while index < len(contacts_list):
             new_row[5] = f"+7({code}){part1}-{part2}-{part3} доб.{ext}"
         else:
             new_row[5] = f"+7({code}){part1}-{part2}-{part3}"
-    key = ' '.join(new_row[0:2])
+    key = ' '.join(new_row[0:3])
     if key not in contact_dict:
         contact_dict[key] = new_row
     else:
